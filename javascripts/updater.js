@@ -34,8 +34,7 @@
       }).done(function(branchArray) {
         //NOTE(adam): determine if there is a branch named "gh-pages"
         var isPages = branchArray.filter(b => b.name === "gh-pages").length > 0;
-
-        resolve(isPages ? branchArray : null);
+        resolve(isPages ? repo : null);
       }).fail((x,s,e) => reject(e));
     });
   }
