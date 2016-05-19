@@ -2,6 +2,8 @@
 
 (function() {
   "use strict";
+  let fs = require("fs");
+  let https = require("https");
 
   let requestData = {client_id: "aoswalt", access_token: ""};
 
@@ -42,7 +44,7 @@
   //TODO(adam): get non-owned repos
   fetchToken().then(function(token) {
     requestData.access_token = token.trim();
-    return fetchRepos();
+    // return fetchRepos();
   }).then(function(repoArray) {
     let repoPromises = [];
 
@@ -51,8 +53,24 @@
     });
 
     Promise.all(repoPromises).then(function(values) {
-      console.log("values", values.filter(e => e !== null));
+      let pagesRepos = values.filter(e => e !== null);
+      fs.writeFile("../data/repos.json", JSON.stringify({repos: pagesRepos}));
     });
+  });
+
+  let options = {
+    hostname: "api.github.com",
+    path: "/users/aoswalt/repos?client_id=aoswalt&access_token=",   //+token
+    headers: { 'User-Agent': 'javascript' },
+    json: true
+  };
+
+  https.get(options, function(response) {
+    console.log("response.statusCode", response.statusCode);
+
+    let stream = fs.createWriteStream("data/repos.json");
+    response.on("data", data => stream.write(data));
+    response.on("end", () => stream.end());
   });
 
 }());
