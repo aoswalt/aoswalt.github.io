@@ -1,4 +1,16 @@
 /* eslint-disable no-console */
+
+/* NOTE(adam):
+  Purpose: generate a list of repos with gh-pages
+  - Authentication needed due to number of api requests
+  - Get my access token from a local file to keep it out of github
+  - Request the data for all repos
+  - For each repo, request the data for all branches
+  - If a branch is named "gh-pages", add the repo to an array
+  - Map the array to more compact data
+  - Write json file that live page can read
+*/
+
 (function() {
   "use strict";
   const fs = require("fs");
