@@ -1,76 +1,87 @@
-/* jshint camelcase:false */
-
 (function() {
   "use strict";
-  let fs = require("fs");
-  let https = require("https");
+  const fs = require("fs");
+  const https = require("https");
 
-  let requestData = {client_id: "aoswalt", access_token: ""};
+  const requestData = {client_id: "aoswalt", access_token: ""};
+  const options = {
+    hostname: "api.github.com",
+    path: "/users/aoswalt/repos", //?client_id=aoswalt&access_token=",   //+token
+    headers: { "User-Agent": "javascript" },
+    json: true
+  };
 
   function fetchToken() {
     return new Promise(function(resolve, reject) {
-      $.ajax("/data/access.token")
-        .done(token => resolve(token))
-        .fail((x,s,e) => reject(e));
+      fs.readFile("data/access.token", function(err, data) {
+        if(err) {
+          reject(err);
+          return;
+        }
+        resolve(data.toString().trim());
+      });
     });
   }
 
   function fetchRepos() {
     return new Promise(function(resolve, reject) {
-      $.ajax({
-        url: "https://api.github.com/users/aoswalt/repos",
-        data: requestData
-      }).done(function(repoArray) {
-        resolve(repoArray);
-      }).fail((x,s,e) => reject(e));
+      options.path = "/users/aoswalt/repos";
+      options.pah += `?client_id={requestData.client_id}&access_token={requestData.access_token}`;
+
+      https.get(options, function(response) {
+        if(response.statusCode !== 200) { reject(response); }   //eslint-disable-line no-magic-numbers
+        const data = [];
+        response.on("data", chunk => data.push(chunk));
+        response.on("end", () => resolve(JSON.parse(data.join(""))));
+        response.on("error", err => reject(err));
+      });
     });
   }
 
   function fetchBranches(repo) {
     return new Promise(function(resolve, reject) {
       //NOTE(adam): branches_url ends with {/branch}
-      var repoUrl = repo.branches_url.replace(/{.+}/, "");
-      $.ajax({
-        url: repoUrl,
-        data: requestData
-      }).done(function(branchArray) {
-        //NOTE(adam): determine if there is a branch named "gh-pages"
-        var isPages = branchArray.filter(b => b.name === "gh-pages").length > 0;
-        resolve(isPages ? repo : null);
-      }).fail((x,s,e) => reject(e));
+      let repoUrl = repo.branches_url.replace(/{.+}/, "");
+      repoUrl = repoUrl.replace("https://", "");
+      options.path = repoUrl.replace(options.hostname, "");
+      options.path += `?client_id=${requestData.client_id}&access_token=${requestData.access_token}`;
+
+      https.get(options, function(response) {
+        if(response.statusCode !== 200) { reject(response); }   //eslint-disable-line no-magic-numbers
+        const data = [];
+        response.on("data", chunk => data.push(chunk));
+        response.on("end", () => {
+          const isPages = JSON.parse(data.toString()).filter(b => b.name === "gh-pages").length > 0;
+          resolve(isPages ? repo : null);
+        });
+        response.on("error", err => reject(err));
+      });
     });
   }
 
-  //TODO(adam): get non-owned repos
   fetchToken().then(function(token) {
-    requestData.access_token = token.trim();
-    // return fetchRepos();
-  }).then(function(repoArray) {
-    let repoPromises = [];
+    requestData.access_token = token;
 
+    return fetchRepos();
+  }).then(function(repoArray) {
+    const repoPromises = [];
     repoArray.forEach(function(repo) {
       repoPromises.push(fetchBranches(repo));
     });
 
     Promise.all(repoPromises).then(function(values) {
-      let pagesRepos = values.filter(e => e !== null);
-      fs.writeFile("../data/repos.json", JSON.stringify({repos: pagesRepos}));
-    });
-  });
+      const pagesRepos = values.filter(e => e !== null);
+      fs.writeFile("data/fullData.json", JSON.stringify({repos: pagesRepos}));
+      fs.writeFile("data/repos.json", JSON.stringify({repos:
+        pagesRepos.map(e => {
+          return {urlPart: e.name};
+        })
+      }));
 
-  let options = {
-    hostname: "api.github.com",
-    path: "/users/aoswalt/repos?client_id=aoswalt&access_token=",   //+token
-    headers: { 'User-Agent': 'javascript' },
-    json: true
-  };
-
-  https.get(options, function(response) {
-    console.log("response.statusCode", response.statusCode);
-
-    let stream = fs.createWriteStream("data/repos.json");
-    response.on("data", data => stream.write(data));
-    response.on("end", () => stream.end());
+      // let stream = fs.createWriteStream("../data/repos.json");
+      // response.on("data", data => stream.write(data));
+      // response.on("end", () => stream.end());
+    }).catch(console.error);
   });
 
 }());
