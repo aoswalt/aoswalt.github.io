@@ -95,7 +95,11 @@
       fs.writeFile("data/fullData.json", JSON.stringify({repos: pagesRepos}));
       fs.writeFile("data/repos.json", JSON.stringify({
         //NOTE(adam): write simplified data
-        repos: pagesRepos.map(e => ({urlPart: e.name}))
+        repos: pagesRepos.map(e => ({
+          urlPart: e.name,
+          //NOTE(adam): temporary quick and dirty title
+          title: e.name.replace(/-/g, " ").replace(/\b\w/g, s => s.toUpperCase())
+        }))
       }));
     }).catch(console.error);
   });

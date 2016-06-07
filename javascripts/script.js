@@ -3,6 +3,6 @@
 $.ajax("data/repos.json")
 .done(data => {
   data.repos.forEach(r => {
-    $(".links").append(`<p><a href="https://aoswalt.github.io/${r.urlPart}">${r.urlPart}</a></p>`);
+    $(".links").append(`<p><a href="https://aoswalt.github.io/${r.urlPart}">${r.title}</a></p>`);
   });
 });
