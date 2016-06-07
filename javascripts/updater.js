@@ -41,7 +41,7 @@
   function fetchRepos() {
     return new Promise((resolve, reject) => {
       options.path = "/users/aoswalt/repos";
-      options.pah += `?client_id=${requestData.client_id}&access_token=${requestData.access_token}`;
+      options.path += `?client_id=${requestData.client_id}&access_token=${requestData.access_token}`;
 
       https.get(options, function(response) {
         if(response.statusCode !== 200) { reject(response); }   //eslint-disable-line no-magic-numbers
