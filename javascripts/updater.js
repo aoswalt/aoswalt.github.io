@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 (function() {
   "use strict";
   const fs = require("fs");
@@ -6,14 +7,15 @@
   const requestData = {client_id: "aoswalt", access_token: ""};
   const options = {
     hostname: "api.github.com",
-    path: "/users/aoswalt/repos", //?client_id=aoswalt&access_token=",   //+token
+    path: "/users/aoswalt/repos", //?client_id=aoswalt&access_token="
     headers: { "User-Agent": "javascript" },
     json: true
   };
 
+  //NOTE(adam): get access token from file
   function fetchToken() {
     return new Promise(function(resolve, reject) {
-      fs.readFile("data/access.token", function(err, data) {
+      fs.readFile("data/access.token", (err, data) => {
         if(err) {
           reject(err);
           return;
@@ -23,10 +25,11 @@
     });
   }
 
+  //NOTE(adam): get data of all public repos
   function fetchRepos() {
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
       options.path = "/users/aoswalt/repos";
-      options.pah += `?client_id={requestData.client_id}&access_token={requestData.access_token}`;
+      options.pah += `?client_id=${requestData.client_id}&access_token=${requestData.access_token}`;
 
       https.get(options, function(response) {
         if(response.statusCode !== 200) { reject(response); }   //eslint-disable-line no-magic-numbers
@@ -38,20 +41,25 @@
     });
   }
 
+  //NOTE(adam): get data for all branches from repo url
   function fetchBranches(repo) {
-    return new Promise(function(resolve, reject) {
-      //NOTE(adam): branches_url ends with {/branch}
-      let repoUrl = repo.branches_url.replace(/{.+}/, "");
-      repoUrl = repoUrl.replace("https://", "");
-      options.path = repoUrl.replace(options.hostname, "");
+    return new Promise((resolve, reject) => {
+      //NOTE(adam): branches_url must be trimmed and ends with {/branch}
+      options.path = repo.branches_url
+        .replace(/{.+}/, "")
+        .replace("https://", "")
+        .replace(options.hostname, "");
       options.path += `?client_id=${requestData.client_id}&access_token=${requestData.access_token}`;
 
       https.get(options, function(response) {
         if(response.statusCode !== 200) { reject(response); }   //eslint-disable-line no-magic-numbers
-        const data = [];
-        response.on("data", chunk => data.push(chunk));
+
+        const rawData = [];
+        response.on("data", chunk => rawData.push(chunk));
         response.on("end", () => {
-          const isPages = JSON.parse(data.toString()).filter(b => b.name === "gh-pages").length > 0;
+          //NOTE(adam): if a repo has a gh-pages branch, resolve the data, otherwise null
+          const data = JSON.parse(rawData.join(""));
+          const isPages = data.filter(b => b.name === "gh-pages").length > 0;
           resolve(isPages ? repo : null);
         });
         response.on("error", err => reject(err));
@@ -59,9 +67,9 @@
     });
   }
 
+  //NOTE(adam): run to fetch and write data
   fetchToken().then(function(token) {
     requestData.access_token = token;
-
     return fetchRepos();
   }).then(function(repoArray) {
     const repoPromises = [];
@@ -70,17 +78,13 @@
     });
 
     Promise.all(repoPromises).then(function(values) {
+      //NOTE(adam): trim nulls from repos with no gh-pages
       const pagesRepos = values.filter(e => e !== null);
       fs.writeFile("data/fullData.json", JSON.stringify({repos: pagesRepos}));
-      fs.writeFile("data/repos.json", JSON.stringify({repos:
-        pagesRepos.map(e => {
-          return {urlPart: e.name};
-        })
+      fs.writeFile("data/repos.json", JSON.stringify({
+        //NOTE(adam): write simplified data
+        repos: pagesRepos.map(e => ({urlPart: e.name}))
       }));
-
-      // let stream = fs.createWriteStream("../data/repos.json");
-      // response.on("data", data => stream.write(data));
-      // response.on("end", () => stream.end());
     }).catch(console.error);
   });
 
